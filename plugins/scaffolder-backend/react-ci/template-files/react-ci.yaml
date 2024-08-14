@@ -86,15 +86,14 @@ jobs:
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@v1.2.0
         env:
-          # SONAR_TOKEN: ${{ '${{ SECRETS.SONAR_AUTH_TOKEN }}' }}
-          SONAR_TOKEN: '3c79bb15260c0b908e10be8d7ef3ce0064d0d6cd'
+          SONAR_TOKEN: ${{ '${{ SECRETS.SONAR_AUTH_TOKEN }}' }}
           SONAR_HOST_URL: ${{ values.sonar_host_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_SCANNER_OPTS: "-Dhttps.proxyHost=185.46.212.97 -Dhttps.proxyPort=9480 -Dhttp.nonProxyHosts=sonarqube-pic.ta.philips.com"
         with:
           projectBaseDir: ${{values.working_directory}}/src
           args: >
-            -Dsonar.projectKey=metricsuitest
+            -Dsonar.projectKey=${{values.sonar_projectkey}}
             -Dsonar.qualitygate.wait=true
             -Dsonar.verbose=true
             -Dsonar.javascript.lcov.reportPaths=$GITHUB_WORKSPACE/coverage/lcov.info
@@ -106,6 +105,5 @@ jobs:
         # Force to fail step after specific time
         timeout-minutes: 5
         env:
-          # SONAR_TOKEN: ${{ secrets.SONAR_AUTH_TOKEN }}
-          SONAR_TOKEN: '3c79bb15260c0b908e10be8d7ef3ce0064d0d6cd'
+          SONAR_TOKEN: ${{ secrets.SONAR_AUTH_TOKEN }}
           no_proxy: "sonarqube-pic.ta.philips.com"
