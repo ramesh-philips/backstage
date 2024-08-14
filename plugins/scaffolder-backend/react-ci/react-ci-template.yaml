@@ -1,0 +1,196 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-template
+kind: Template
+metadata:
+  name: React-Application-CI-Workflow
+  title: React Application CI Workflow Template
+  description: Add a React CI workflow with a pull request to your repository. To also create a repository click [here](https://portal.internal.philips/create/templates/default/new-innersource-repository) before proceeding. The workflow requires minimal input and creates a standardized react CI workflow
+spec:
+  owner: Group:default/engit-swcoe
+  type: repository
+
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  parameters:
+    - title: Choose a location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          description: This is the name of the existing repository you want to add react CI workflow
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+            allowedOwners:
+              - philips-internal
+
+    - title: Fill in some steps
+      required:
+        - node_version
+        - working_directory
+        - dependencies_command
+        - build_command
+      properties:
+        node_version:
+          title: Node version
+          type: string
+          description: Version of Node.js to use
+          default: "16.x"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        working_directory:
+          title: Working directory
+          type: string
+          description: working directory of the application
+          default: "."
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        dependencies_command:
+          title: Installations
+          type: string
+          description: Installs the project's dependencies using npm install
+          default: "npm install"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        lint_command:
+          title: Linting
+          type: string
+          description: Executes ESLint to check for code quality issues
+          default: "npm run lint || true"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        prettier_check_command:
+          title: Prettier check
+          type: string
+          description: Executes prettier to check the format of the code
+          default: "npx prettier --check . || true"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        build_command:
+          title: Build
+          type: string
+          description: Command to build the React application
+          default: "CI=false npm run build"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        test_command:
+          title: Test
+          type: string
+          description: Runs the tests using npm test
+          default: "npm test"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        test_coverage_command:
+          title: Test coverage
+          type: string
+          description: Runs tests and generates a coverage report
+          default: "npm test -- --coverage"
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+
+    - title: Sonar Config
+      properties:
+        disable_sonarqube_scan:
+          type: boolean
+          description: Disables sonarqube analysis completely
+          default: false
+      dependencies:
+        disable_sonarqube_scan:
+          'oneOf':
+            - properties:
+                disable_sonarqube_scan:
+                  enum:
+                    - true
+            - properties:
+                disable_sonarqube_scan:
+                  enum:
+                    - false
+                disable_sonarqube_scan_with_coverlet_codecoverge:
+                  type: boolean
+                  description: Runs sonarqube analysis with codecoverage
+                  default: false
+                sonar_host_url:
+                  type: string
+                  description: URL of the Sonarqube server
+                  default: 'https://sonarqube-pic.ta.philips.com/sonar'
+                secrets_sonar:
+                  title: Enter the Sonar secret
+                  description: |
+                    Note that the Developer Portal doesnt store the secrets and is masked in the UI. 
+                    The secrets entered here will be added as GitHub secrets in the repository. 
+                    If you wish not to insert through Developer Portal then you can add it manually and skip this section.
+                  type: object
+                  ui:backstage:
+                    review:
+                      mask: '*****'
+                  properties:
+                    SONAR_AUTH_TOKEN:
+                      description: Authentication token to connect to your Sonarqube project
+                      type: string
+                      ui:field: password
+              required:
+                - sonar_host_url
+    
+
+  # These steps are executed in the scaffolder backend, using data that we gathered
+  # via the parameters above.
+  steps:
+    # Each step executes an action, in this case one templates files into the working directory.
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./template-files/
+        targetPath: .github/workflows
+        values:
+          node_version: ${{ parameters.node_version }}
+          working_directory: ${{ parameters.working_directory }}
+          dependencies_command: ${{ parameters.dependencies_command }}
+          lint_command: ${{ parameters.lint_command }}
+          prettier_check_command: ${{ parameters.prettier_check_command }}
+          test_command: ${{ parameters.test_command }}
+          test_coverage_command: ${{ parameters.test_coverage_command }}
+          build_command: ${{ parameters.build_command }}
+          owner: ${{ parameters.owner }}
+          disable_sonarqube_scan: ${{parameters.disable_sonarqube_scan}}
+          disable_sonarqube_scan_with_coverlet_codecoverge: ${{parameters.disable_sonarqube_scan_with_coverlet_codecoverge}}
+          sonar_host_url: '${{parameters.sonar_host_url}}'
+          secrets_sonar: '${{parameters.secrets_sonar}}'
+          sonar_projectkey: ${{ parameters.repoUrl.split('?')[1].split('&')[1].substring(5) }}
+
+    - id: publish
+      name: Raise Pull Request
+      action: publish:github:pull-request
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        branchName: 'devportal---add-react-ci-${{range(1000)|random}}'
+        update: true
+        title: 'feat: 🎉 Add React CI workflow from `developer-portal`'
+        token: ${{ secrets.GITHUB_TOKEN }}
+        description: |
+          This pull request adds a `react-ci.yaml` file to the workflow folder. 
+
+          > _This PR is automated by the [Developer Portal](https://portal.internal.philips/)_
+    
+    - id: success
+      name: React-CI check status
+      action: debug:log
+      input:
+        message: |
+          'React-CI workflow is added successfully. Check out https://github.com/${{ parameters.repoUrl | projectSlug }}/${{ parameters.branchName }}'
+  # Outputs are displayed to the user after a successful execution of the template.
+  output:
+    links:
+      - title: Pull Request
+        url: ${{ steps.publish.output.remoteUrl }}

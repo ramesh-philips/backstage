@@ -1,0 +1,111 @@
+name: React CI 
+
+on:
+  pull_request:
+   branches: 
+      main
+  push:
+   branches:
+      main
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64, philips-code-hub, ubuntu-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Disabling shallow clones is recommended for improving the relevancy of reporting
+          fetch-depth: 0
+
+      - name: Set up Node.js ${{values.node_version}}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{values.node_version}}
+
+      - name: Install dependencies
+        working-directory: ${{values.working_directory}}
+        run: ${{values.dependencies_command}}
+
+      - name: Run lint
+        working-directory: ${{values.working_directory}}
+        run: ${{values.lint_command}}
+
+      - name: Run prettier
+        working-directory: ${{values.working_directory}}
+        run: ${{values.prettier_check_command}}
+
+      - name: Run tests
+        working-directory: ${{values.working_directory}}
+        run: ${{values.test_command}}
+      
+      - name: Run tests with coverage
+        working-directory: ${{values.working_directory}}
+        run: ${{values.test_coverage_command}}
+
+      - name: Upload coverage report
+        if: ${{ values.disable_sonarqube_scan_with_coverlet_codecoverge == false }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: Build project
+        working-directory: ${{values.working_directory}}
+        run: ${{values.build_command}}
+      
+      - name: Upload production build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build/
+      
+  sonar_scan:
+    runs-on: [self-hosted, linux, x64, philips-code-hub, ubuntu-latest]
+    needs: build
+    if: ${{ values.disable_sonarqube_scan == false }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        if: ${{ values.disable_sonarqube_scan_with_coverlet_codecoverge == false }}
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+      - name: Display structure of downloaded files
+        if: ${{ values.disable_sonarqube_scan_with_coverlet_codecoverge == false }}
+        run: |
+          echo "The workspace directory is: $GITHUB_WORKSPACE"
+          cd $GITHUB_WORKSPACE/coverage
+          ls -la
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v1.2.0
+        env:
+          # SONAR_TOKEN: ${{ '${{ SECRETS.SONAR_AUTH_TOKEN }}' }}
+          SONAR_TOKEN: '3c79bb15260c0b908e10be8d7ef3ce0064d0d6cd'
+          SONAR_HOST_URL: ${{ values.sonar_host_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_SCANNER_OPTS: "-Dhttps.proxyHost=185.46.212.97 -Dhttps.proxyPort=9480 -Dhttp.nonProxyHosts=sonarqube-pic.ta.philips.com"
+        with:
+          projectBaseDir: ${{values.working_directory}}/src
+          args: >
+            -Dsonar.projectKey=metricsuitest
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.verbose=true
+            -Dsonar.javascript.lcov.reportPaths=$GITHUB_WORKSPACE/coverage/lcov.info
+      
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: src/.scannerwork/report-task.txt
+        # Force to fail step after specific time
+        timeout-minutes: 5
+        env:
+          # SONAR_TOKEN: ${{ secrets.SONAR_AUTH_TOKEN }}
+          SONAR_TOKEN: '3c79bb15260c0b908e10be8d7ef3ce0064d0d6cd'
+          no_proxy: "sonarqube-pic.ta.philips.com"
