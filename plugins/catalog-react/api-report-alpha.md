@@ -17,12 +17,21 @@ import { TranslationRef } from '@backstage/core-plugin-api/alpha';
 
 // @alpha (undocumented)
 export const catalogExtensionData: {
-  entityContentTitle: ConfigurableExtensionDataRef<string, {}>;
-  entityFilterFunction: ConfigurableExtensionDataRef<
-    (entity: Entity) => boolean,
+  entityContentTitle: ConfigurableExtensionDataRef<
+    string,
+    'catalog.entity-content-title',
     {}
   >;
-  entityFilterExpression: ConfigurableExtensionDataRef<string, {}>;
+  entityFilterFunction: ConfigurableExtensionDataRef<
+    (entity: Entity) => boolean,
+    'catalog.entity-filter-function',
+    {}
+  >;
+  entityFilterExpression: ConfigurableExtensionDataRef<
+    string,
+    'catalog.entity-filter-expression',
+    {}
+  >;
 };
 
 // @alpha (undocumented)
@@ -106,7 +115,15 @@ export function createEntityCardExtension<
     config: TConfig;
     inputs: Expand<ResolvedExtensionInputs<TInputs>>;
   }) => Promise<JSX.Element>;
-}): ExtensionDefinition<TConfig>;
+}): ExtensionDefinition<
+  TConfig,
+  TConfig,
+  never,
+  never,
+  string | undefined,
+  string | undefined,
+  string | undefined
+>;
 
 // @alpha (undocumented)
 export function createEntityContentExtension<
@@ -129,11 +146,23 @@ export function createEntityContentExtension<
   loader: (options: {
     inputs: Expand<ResolvedExtensionInputs<TInputs>>;
   }) => Promise<JSX.Element>;
-}): ExtensionDefinition<{
-  title: string;
-  path: string;
-  filter?: string | undefined;
-}>;
+}): ExtensionDefinition<
+  {
+    title: string;
+    path: string;
+    filter?: string | undefined;
+  },
+  {
+    filter?: string | undefined;
+    title?: string | undefined;
+    path?: string | undefined;
+  },
+  never,
+  never,
+  string | undefined,
+  string | undefined,
+  string | undefined
+>;
 
 // @alpha
 export function isOwnerOf(owner: Entity, entity: Entity): boolean;

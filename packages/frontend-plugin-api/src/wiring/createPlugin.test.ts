@@ -27,16 +27,16 @@ import { MockConfigApi, renderWithEffects } from '@backstage/test-utils';
 import { createExtensionInput } from './createExtensionInput';
 import { BackstagePlugin } from './types';
 
-const nameExtensionDataRef = createExtensionDataRef<string>('name');
+const nameExtensionDataRef = createExtensionDataRef<string>().with({
+  id: 'name',
+});
 
 const Extension1 = createExtension({
   name: '1',
   attachTo: { id: 'test/output', input: 'names' },
-  output: {
-    name: nameExtensionDataRef,
-  },
+  output: [nameExtensionDataRef],
   factory() {
-    return { name: 'extension-1' };
+    return [nameExtensionDataRef('extension-1')];
   },
 });
 
@@ -148,6 +148,31 @@ describe('createPlugin', () => {
     });
     expect(plugin).toBeDefined();
 
+    expect(plugin.getExtension('test/1')).toMatchInlineSnapshot(`
+      {
+        "$$type": "@backstage/ExtensionDefinition",
+        "attachTo": {
+          "id": "test/output",
+          "input": "names",
+        },
+        "configSchema": undefined,
+        "disabled": false,
+        "factory": [Function],
+        "inputs": {},
+        "kind": undefined,
+        "name": "1",
+        "namespace": "test",
+        "output": [
+          [Function],
+        ],
+        "override": [Function],
+        "toString": [Function],
+        "version": "v2",
+      }
+    `);
+    // @ts-expect-error
+    expect(plugin.getExtension('nonexistent')).toBeUndefined();
+
     await renderWithEffects(
       createTestAppRoot({
         features: [plugin],
@@ -245,5 +270,69 @@ describe('createPlugin', () => {
         ],
       }),
     ).toThrow("Plugin 'test' provided duplicate extensions: test/2, test/3");
+  });
+
+  describe('overrides', () => {
+    it('should return a plugin instance with the correct namespace', () => {
+      const plugin = createPlugin({
+        id: 'test',
+        extensions: [Extension1, Extension2],
+      });
+
+      expect(plugin.getExtension('test/1')).toMatchInlineSnapshot(`
+        {
+          "$$type": "@backstage/ExtensionDefinition",
+          "attachTo": {
+            "id": "test/output",
+            "input": "names",
+          },
+          "configSchema": undefined,
+          "disabled": false,
+          "factory": [Function],
+          "inputs": {},
+          "kind": undefined,
+          "name": "1",
+          "namespace": "test",
+          "output": [
+            [Function],
+          ],
+          "override": [Function],
+          "toString": [Function],
+          "version": "v2",
+        }
+      `);
+    });
+
+    it('should allow overriding extensions that have a matching ID, while keeping old extensions that do not have overlapping IDs', async () => {
+      const plugin = createPlugin({
+        id: 'test',
+        extensions: [Extension1, Extension2, outputExtension],
+      });
+
+      await renderWithEffects(
+        createTestAppRoot({
+          features: [
+            plugin.withOverrides({
+              extensions: [
+                plugin.getExtension('test/1').override({
+                  factory() {
+                    return [nameExtensionDataRef('overridden')];
+                  },
+                }),
+              ],
+            }),
+          ],
+          config: {
+            app: {
+              extensions: [{ 'app/root': false }],
+            },
+          },
+        }),
+      );
+
+      await expect(
+        screen.findByText('Names: extension-2, overridden'),
+      ).resolves.toBeInTheDocument();
+    });
   });
 });
