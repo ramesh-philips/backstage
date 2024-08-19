@@ -3,7 +3,7 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: React-Application-CI-Workflow
-  title: React Application CI Workflow Template
+  title: React CI Workflow Template
   description: Add a React CI workflow with a pull request to your repository. To also create a repository click [here](https://portal.internal.philips/create/templates/default/new-innersource-repository) before proceeding. The workflow requires minimal input and creates a standardized react CI workflow
 spec:
   owner: Group:default/engit-swcoe
@@ -102,8 +102,9 @@ spec:
     - title: Sonar Config
       properties:
         disable_sonarqube_scan:
+          title: Disable Sonarqube Scan
           type: boolean
-          description: Disables sonarqube analysis completely
+          description: Disable sonarqube analysis completely
           default: false
       dependencies:
         disable_sonarqube_scan:
@@ -117,8 +118,9 @@ spec:
                   enum:
                     - false
                 disable_sonarqube_scan_with_coverlet_codecoverge:
+                  title: Disable Sonarqube code coverage
                   type: boolean
-                  description: Runs sonarqube analysis with codecoverage
+                  description: Disable Sonarqube analysis with codecoverage
                   default: false
                 sonar_host_url:
                   type: string
